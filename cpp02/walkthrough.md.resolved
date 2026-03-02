@@ -1,0 +1,381 @@
+# 📖 Guide d'étude détaillé — CPP02 à CPP04
+
+---
+
+# CPP02 — Nombres à virgule fixe & Opérateurs
+
+## Ex00 — Forme Canonique Orthodoxe
+
+**Le but** : Apprendre les 4 fonctions qu'EVERY classe DOIT avoir.
+
+### Les 4 fonctions obligatoires
+
+```cpp
+class Fixed {
+private:
+    int _value;                        // la valeur stockée
+    static const int _fractionalBits = 8;  // toujours 8
+
+public:
+    Fixed();                            // 1. Default constructor
+    Fixed(const Fixed &src);            // 2. Copy constructor
+    Fixed &operator=(const Fixed &rhs); // 3. Copy assignment
+    ~Fixed();                           // 4. Destructor
+};
+```
+
+**Quand chacun est appelé :**
+```cpp
+Fixed a;         // → Default constructor (créé à partir de rien)
+Fixed b(a);      // → Copy constructor (b n'EXISTE PAS encore, on le crée en copiant a)
+Fixed c;         // → Default constructor
+c = b;           // → operator= (c EXISTE DÉJÀ, on lui assigne b)
+// fin du } → Destructeurs (ordre INVERSE : c, b, a)
+```
+
+**Syntaxe clé :** `const Fixed &src` = une **référence constante**
+- `&` = pas de copie (on passe l'adresse, plus rapide)
+- `const` = on promet de ne pas modifier `src`
+
+---
+
+## Ex01 — Constructeurs int/float + conversions
+
+**Le but** : Comprendre comment stocker des décimales dans un [int](file:///home/sam/42/CPP/cpp02/ex03/Point.hpp#13-14).
+
+### Le principe du fixed-point
+
+On coupe un [int](file:///home/sam/42/CPP/cpp02/ex03/Point.hpp#13-14) de 32 bits en deux :
+```
+[24 bits pour l'entier][8 bits pour les décimales]
+```
+
+Pour stocker `5.5` : on multiplie par 256 → `5.5 × 256 = 1408` → on stocke `1408`
+Pour relire : on divise par 256.0 → `1408 ÷ 256.0 = 5.5`
+
+### Les nouveaux constructeurs
+
+```cpp
+// Stocker un int : décaler de 8 bits vers la gauche (= × 256)
+Fixed::Fixed(const int n) {
+    _value = n << _fractionalBits;      // << = bit-shift gauche = multiplier par 2^8
+}
+
+// Stocker un float : multiplier par 256 et arrondir
+Fixed::Fixed(const float n) {
+    _value = roundf(n * (1 << _fractionalBits));  // roundf = arrondir au plus proche
+}
+```
+
+### Les conversions
+
+```cpp
+float Fixed::toFloat() const {
+    return _value / (float)(1 << _fractionalBits);  // ÷ 256.0 (float!)
+}
+
+int Fixed::toInt() const {
+    return _value >> _fractionalBits;   // >> = bit-shift droit = diviser par 256
+}
+```
+
+> ⚠️ `/ 256` (int) = perd les décimales. `/ 256.0` (float) = garde les décimales.
+
+### `operator<<` — apprendre à `cout` comment afficher
+
+```cpp
+std::ostream &operator<<(std::ostream &out, const Fixed &fixed) {
+    out << fixed.toFloat();   // on affiche la version float
+    return out;               // on retourne out pour le chaînage (cout << a << b)
+}
+```
+
+**Pourquoi hors de la classe ?** Parce que le 1er paramètre est `ostream`, pas [Fixed](file:///home/sam/42/CPP/cpp02/ex01/Fixed.hpp#14-15).
+
+---
+
+## Ex02 — Surcharge de 14 opérateurs
+
+**Le but** : Rendre la classe Fixed utilisable avec `+`, `-`, `>`, `<`, [++](file:///home/sam/42/CPP/cpp02/ex02/Fixed.cpp#103-109), etc.
+
+### Comparaison (6 opérateurs) — le plus simple
+
+```cpp
+bool Fixed::operator>(const Fixed &rhs) const {
+    return _value > rhs.getRawBits();   // comparer les valeurs brutes
+}
+// Pareil pour <, >=, <=, ==, !=
+```
+
+### Arithmétique (4 opérateurs)
+
+```cpp
+Fixed Fixed::operator+(const Fixed &rhs) const {
+    return Fixed(toFloat() + rhs.toFloat());  // convertir → opérer → reconvertir
+}
+// Pareil pour -, *, /
+```
+
+### Pre/Post increment
+
+```cpp
+// ++a (PRE) : modifie D'ABORD, retourne APRÈS
+Fixed &Fixed::operator++() {
+    _value++;          // +1 au niveau fixed-point = +0.00390625
+    return *this;      // retourne soi-même (référence)
+}
+
+// a++ (POST) : sauvegarde, modifie, retourne L'ANCIEN
+Fixed Fixed::operator++(int) {    // le (int) est FACTICE, juste pour différencier
+    Fixed tmp(*this);  // sauvegarde l'état actuel
+    _value++;          // modifie
+    return tmp;        // retourne l'ancienne valeur (copie, pas référence)
+}
+```
+
+---
+
+## Ex03 — BSP (point dans un triangle)
+
+**Le but** : Utiliser la classe Fixed pour un problème de géométrie.
+
+### [Point](file:///home/sam/42/CPP/cpp02/ex03/Point.hpp#13-14) — une classe avec des coordonnées `const`
+
+```cpp
+class Point {
+    Fixed const _x;  // const = ne peut PLUS changer après création
+    Fixed const _y;
+};
+```
+
+### L'algorithme BSP
+
+Imagine une fourmi qui marche sur chaque côté du triangle. Elle regarde le point :
+- Si le point est **toujours à gauche** des 3 côtés → dedans ✅
+- Si le point change de côté → dehors ❌
+- Si le point est pile sur un côté → bord → `false`
+
+```cpp
+// Le cross product dit "gauche ou droite"
+static Fixed crossProduct(Point p1, Point p2, Point p3) {
+    return (p2.getX() - p1.getX()) * (p3.getY() - p1.getY())
+         - (p2.getY() - p1.getY()) * (p3.getX() - p1.getX());
+}
+
+bool bsp(Point a, Point b, Point c, Point point) {
+    Fixed d1 = crossProduct(a, b, point);  // côté AB
+    Fixed d2 = crossProduct(b, c, point);  // côté BC
+    Fixed d3 = crossProduct(c, a, point);  // côté CA
+    // Tous du même signe = dedans
+    return (d1 > 0 && d2 > 0 && d3 > 0) || (d1 < 0 && d2 < 0 && d3 < 0);
+}
+```
+
+---
+
+# CPP03 — Héritage
+
+## Ex00 — ClapTrap (classe de base)
+
+**Le but** : Créer une classe de base réutilisable.
+
+```cpp
+class ClapTrap {
+protected:            // protected = accessible par les enfants (pas private !)
+    std::string _name;
+    unsigned int _hitPoints;      // 10
+    unsigned int _energyPoints;   // 10
+    unsigned int _attackDamage;   // 0
+};
+```
+
+**Les 3 actions :**
+- [attack()](file:///home/sam/42/CPP/cpp01/ex03/HumanB.cpp#14-21) — coûte 1 énergie, affiche les dégâts
+- [takeDamage()](file:///home/sam/42/CPP/cpp03/ex00/ClapTrap.cpp#42-47) — perd des HP (pas de coût)
+- [beRepaired()](file:///home/sam/42/CPP/cpp03/ex00/ClapTrap.cpp#48-56) — coûte 1 énergie, regagne des HP
+
+---
+
+## Ex01 — ScavTrap (héritage simple)
+
+**Le but** : Apprendre l'héritage avec `: public ClapTrap`.
+
+```cpp
+class ScavTrap : public ClapTrap {  // ScavTrap EST UN ClapTrap
+    void guardGate();               // + un pouvoir spécial
+};
+```
+
+### La chaîne de construction
+
+```cpp
+ScavTrap::ScavTrap(std::string name) : ClapTrap(name)  // appelle le parent !
+{
+    _hitPoints = 100;       // écrase les valeurs du parent
+    _energyPoints = 50;
+    _attackDamage = 20;
+}
+```
+
+**Construction** : parent d'abord → enfant ensuite (fondation → bâtiment)
+**Destruction** : enfant d'abord → parent ensuite (bâtiment → fondation)
+
+---
+
+## Ex02 — FragTrap (même chose)
+
+Identique à ScavTrap mais HP=100, Energy=100, Attack=30 et [highFivesGuys()](file:///home/sam/42/CPP/cpp03/ex02/FragTrap.cpp#36-40).
+
+---
+
+## Ex03 — DiamondTrap (héritage en diamant)
+
+**Le but** : Comprendre le `virtual` pour l'héritage multiple.
+
+```
+        ClapTrap           ← grand-parent
+        /      \
+   ScavTrap  FragTrap      ← les deux parents
+        \      /
+      DiamondTrap          ← hérite des DEUX
+```
+
+**Le problème** : sans `virtual`, DiamondTrap aurait **2 copies** de ClapTrap.
+
+**La solution** : `virtual` sur les parents
+```cpp
+class ScavTrap : virtual public ClapTrap { };  // "je partage mon ClapTrap"
+class FragTrap : virtual public ClapTrap { };  // "moi aussi"
+```
+
+**Le truc des deux `_name` :**
+```cpp
+this->_name        // → "Delta" (nom du DiamondTrap)
+ClapTrap::_name    // → "Delta_clap_name" (nom du ClapTrap)
+```
+
+---
+
+# CPP04 — Polymorphisme & Interfaces
+
+## Ex00 — Polymorphisme (`virtual`)
+
+**Le but** : Comprendre pourquoi `virtual` est indispensable.
+
+```cpp
+class Animal {
+    virtual void makeSound() const;   // VIRTUAL = magie du polymorphisme
+    virtual ~Animal();                // VIRTUAL destructor = OBLIGATOIRE !
+};
+
+class Dog : public Animal {
+    void makeSound() const;           // remplace la version du parent
+};
+```
+
+**Le test :**
+```cpp
+Animal *a = new Dog();   // pointeur Animal, mais c'est un Dog en vrai
+a->makeSound();
+// AVEC virtual    → appelle Dog::makeSound()    → "Woof!" ✅
+// SANS virtual    → appelle Animal::makeSound() → son générique ❌
+```
+
+**WrongAnimal/WrongCat** = même code mais SANS `virtual` → prouve que ça marche pas.
+
+---
+
+## Ex01 — Brain & Deep Copy
+
+**Le but** : Comprendre deep copy vs shallow copy avec des pointeurs.
+
+```cpp
+class Dog : public Animal {
+    Brain *_brain;   // pointeur → alloué avec new
+};
+```
+
+**❌ Shallow copy** (copie le pointeur) :
+```cpp
+this->_brain = src._brain;  // DEUX objets pointent vers LE MÊME Brain !
+```
+
+**✅ Deep copy** (crée un nouvel objet) :
+```cpp
+// Copy constructor :
+this->_brain = new Brain(*src._brain);   // clone le Brain
+
+// operator= :
+delete this->_brain;                      // supprime l'ancien
+this->_brain = new Brain(*rhs._brain);    // crée un nouveau
+```
+
+**Destructeur** : `delete this->_brain;` pour éviter les fuites.
+
+---
+
+## Ex02 — Classe abstraite
+
+**Le changement** : UNE seule ligne !
+```diff
+- virtual void makeSound() const;       // normal
++ virtual void makeSound() const = 0;   // PURE VIRTUAL
+```
+
+`= 0` dit : *"Je ne sais pas quel son fait un Animal générique, donc interdit d'en créer un !"*
+
+- `Animal a;` → ❌ erreur de compilation
+- `new Dog()` → ✅ car Dog implémente [makeSound()](file:///home/sam/42/CPP/cpp04/ex00/Animal.cpp#25-29)
+
+---
+
+## Ex03 — Interfaces (RPG avec Materias)
+
+**Le but** : Utiliser des classes 100% abstraites comme **contrats**.
+
+### Les interfaces (contrats)
+
+```cpp
+class ICharacter {                              // "I" = Interface
+    virtual void equip(AMateria *m) = 0;        // que des = 0
+    virtual void use(int idx, ICharacter &target) = 0;
+};
+```
+
+Une interface dit : *"Si tu veux être un ICharacter, tu DOIS avoir ces fonctions."*
+
+### L'architecture
+
+```
+AMateria (abstraite)  ←── Ice ("ice bolt") + Cure ("heals wounds")
+ICharacter (contrat)  ←── Character (inventaire de 4 slots)
+IMateriaSource (contrat) ←── MateriaSource (usine à materias)
+```
+
+### [clone()](file:///home/sam/42/CPP/cpp04/ex03/Ice.cpp#16-20) — la copie polymorphique
+
+```cpp
+AMateria *Ice::clone() const {
+    return new Ice(*this);    // retourne un NOUVEL Ice
+}
+```
+
+Pourquoi ? Parce que quand tu as un `AMateria*`, tu ne sais pas si c'est un Ice ou un Cure. [clone()](file:///home/sam/42/CPP/cpp04/ex03/Ice.cpp#16-20) crée la bonne copie sans le savoir !
+
+### [equip()](file:///home/sam/42/CPP/cpp04/ex03/Character.cpp#51-64) / [unequip()](file:///home/sam/42/CPP/cpp04/ex03/Character.cpp#65-71) / [use()](file:///home/sam/42/CPP/cpp04/ex03/AMateria.cpp#23-27)
+
+```cpp
+void Character::equip(AMateria *m) {
+    // Cherche le premier slot NULL (0 à 3) et y met m
+}
+
+void Character::unequip(int idx) {
+    _inventory[idx] = 0;    // retire SANS delete !
+}
+
+void Character::use(int idx, ICharacter &target) {
+    _inventory[idx]->use(target);  // appelle Ice::use() ou Cure::use()
+}
+```
+
+> ⚠️ [unequip()](file:///home/sam/42/CPP/cpp04/ex03/Character.cpp#65-71) ne `delete` PAS la materia — elle tombe par terre !
