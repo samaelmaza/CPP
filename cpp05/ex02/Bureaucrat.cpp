@@ -1,4 +1,5 @@
 #include "Bureaucrat.hpp"
+#include "AForm.hpp"
 
 Bureaucrat::Bureaucrat() : _name("default"), _grade(150)
 {
@@ -50,6 +51,29 @@ void Bureaucrat::decrementGrade()
 	if (this->_grade >= 150)
 		throw GradeTooLowException();
 	this->_grade++;
+}
+
+void Bureaucrat::signForm(AForm &form)
+{
+	try
+	{
+		form.beSigned(*this);
+		std::cout << this->_name << " signed " << form.getName() << "." << std::endl;
+	}
+	catch (std::exception &e)
+	{
+		std::cout << this->_name << " couldn't sign " << form.getName()
+			<< " because " << e.what() << std::endl;
+	}
+}
+
+// EXECUTEFORM — meme logique que signForm mais pour executer
+// → Appelle form.execute(*this) dans un try
+// → Si ca marche : affiche "<name> executed <form name>"
+// → Si exception : affiche l'erreur
+void Bureaucrat::executeForm(AForm const &form) const
+{
+	// TODO
 }
 
 const char *Bureaucrat::GradeTooHighException::what() const throw()
