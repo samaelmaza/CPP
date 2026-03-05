@@ -22,35 +22,50 @@ Intern::~Intern()
 {
 }
 
-// Ces 3 fonctions creent chacune un type de formulaire
-// Elles retournent un AForm* (new ShrubberyCreationForm(target), etc.)
 AForm *Intern::createShrubbery(const std::string &target)
 {
-	// TODO
+	return new ShrubberyCreationForm(target);
 }
 
 AForm *Intern::createRobotomy(const std::string &target)
 {
-	// TODO
+	return new RobotomyRequestForm(target);
 }
 
 AForm *Intern::createPresidential(const std::string &target)
 {
-	// TODO
+	return new PresidentialPardonForm(target);
 }
 
-// MAKEFORM — la fonction principale de l'Intern
-// → Compare le nom recu avec les 3 noms possibles :
-//    "shrubbery creation", "robotomy request", "presidential pardon"
-// → Si trouve : affiche "Intern creates <form>" et retourne le formulaire
-// → Si pas trouve : affiche une erreur et retourne NULL
-//
-// IMPORTANT : le sujet interdit les longues chaines de if/else !
-// → Utilise un TABLEAU de pointeurs de fonctions (comme un menu)
-//
-// Indice : tu peux faire un tableau de noms et un tableau de pointeurs
-// vers les 3 fonctions create ci-dessus, puis boucler dessus
-void Intern::makeForm(const std::string &name, const std::string &target)
+AForm *Intern::makeForm(const std::string &name, const std::string &target)
 {
-	// TODO
+	// LIGNE 1 : les 3 noms de formulaires possibles
+	std::string names[3] = {
+		"shrubbery creation",
+		"robotomy request",
+		"presidential pardon"
+	};
+
+	// LIGNE 2 : un tableau de POINTEURS DE FONCTIONS
+	// Chaque case pointe vers une des 3 fonctions create
+	// La syntaxe "AForm *(Intern::*)(const std::string &)" = "une methode de Intern qui prend une string et retourne AForm*"
+	AForm *(Intern::*creators[3])(const std::string &) = {
+		&Intern::createShrubbery,
+		&Intern::createRobotomy,
+		&Intern::createPresidential
+	};
+
+	// LIGNE 3 : boucle sur les 3
+	for (int i = 0; i < 3; i++)
+	{
+		if (name == names[i])
+		{
+			std::cout << "Intern creates " << name << std::endl;
+			// LIGNE 4 : appelle la bonne fonction via le pointeur
+			// (this->*creators[i]) = "appelle la methode pointee par creators[i] sur this"
+			return (this->*creators[i])(target);
+		}
+	}
+	std::cout << "Intern couldn't create " << name << std::endl;
+	return NULL;
 }
