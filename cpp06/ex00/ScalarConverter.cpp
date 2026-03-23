@@ -118,18 +118,13 @@ void ScalarConverter::convert(const std::string &literal)
 		return;
 	}
 
-	// Int literal
+	// Default literal (int, or double without decimal point)
 	char *end;
-	long lvalue = strtol(literal.c_str(), &end, 10);
+	double value = strtod(literal.c_str(), &end);
 	if (*end != '\0')
 	{
 		std::cout << "Error: invalid input" << std::endl;
 		return;
 	}
-	if (lvalue > INT_MAX || lvalue < INT_MIN)
-	{
-		std::cout << "Error: int overflow" << std::endl;
-		return;
-	}
-	printFromDouble(static_cast<double>(lvalue));
+	printFromDouble(value);
 }
