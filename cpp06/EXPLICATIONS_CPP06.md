@@ -67,14 +67,16 @@ char c = static_cast<char>(42);   // → '*' (ASCII 42)
 
 Le compilateur vérifie que la conversion a du sens. `static_cast<int>("hello")` → erreur de compilation.
 
-### Fonctions de parsing utilisées
+### Fonctions de parsing & formatage
 
-| Fonction | Rôle |
+| Fonction / Outil | À quoi ça sert exactement ? |
 |---|---|
-| `strtod(str, &end)` | string → double. `end` pointe vers le premier caractère non-converti |
-| `strtol(str, &end, 10)` | string → long (base 10) |
-| `std::isnan(v)` | `true` si v est NaN (Not a Number) |
-| `std::isinf(v)` | `true` si v est infini (+inf ou -inf) |
+| `strtod(str, &end)` | **St**ring **to** **D**ouble. Convertit le texte brut (ex: `"42.7"`) en un vrai nombre `double` (42.7). Le pointeur `end` est super utile : il nous dit **où la conversion s'est arrêtée**. Si `*end == '\0'`, ça veut dire que *toute* la chaîne était un nombre valide. Si on lui donne `"42abc"`, `end` pointera sur le `'a'` et on saura que c'est invalide ! |
+| `strtol(str, &end, 10)` | **St**ring **to** **L**ong. Pareil que `strtod`, mais convertit en un entier (en base 10). |
+| `std::isnan(v)` | Renvoie `true` si la valeur `v` est "Not a Number" (NaN, ex: le résultat de `0/0`). |
+| `std::isinf(v)` | Renvoie `true` si la valeur `v` est infinie (`+inf` ou `-inf`, ex: le résultat de `1/0`). |
+| `std::fixed` | Modificateur pour `std::cout`. Force l'affichage des nombres flottants en notation décimale classique (ex: `42.0`) plutôt qu'en notation scientifique (ex: `4.2e1`). |
+| `std::setprecision(1)` | Modificateur pour `std::cout` (nécessite `<iomanip>`). Définit le nombre de chiffres à afficher *après la virgule*. Couplé avec `std::fixed`, `std::setprecision(1)` garantit qu'on verra le `.0` sur un nombre rond. |
 
 ---
 
@@ -162,8 +164,8 @@ Le sujet **interdit** `#include <typeinfo>`. Or `std::bad_cast` est défini dans
 
 ## Questions pièges possibles
 
-> **"Pourquoi le constructeur de ScalarConverter est privé ?"**
-> Pour rendre la classe non-instanciable. On n'a besoin que de la méthode statique `convert()`, pas d'un objet.
+> **"Pourquoi le constructeur de ScalarConverter est privé (ainsi que le constructeur de copie et l'opérateur d'assignation) ?"**
+> Le sujet demande explicitement que la classe ne soit **pas instanciable**. En mettant le constructeur, le constructeur de copie et l'opérateur d'assignation en `private`, le compilateur renverra une erreur si quelqu'un essaie d'écrire `ScalarConverter s;` ou `ScalarConverter s2 = s;`. C'est une classe purement utilitaire : on n'a besoin que de sa méthode statique, ça n'a aucun sens d'en créer un "objet".
 
 > **"Pourquoi static sur la méthode convert ?"**
 > Une méthode `static` n'a pas besoin d'objet pour être appelée. On fait `ScalarConverter::convert()` directement.

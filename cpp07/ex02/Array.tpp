@@ -1,59 +1,65 @@
 #ifndef ARRAY_TPP
 #define ARRAY_TPP
 
-// Default constructor — creates an empty array
 template <typename T>
 Array<T>::Array() : _array(NULL), _size(0)
 {
 }
 
-// Constructor with size — creates an array of n elements initialized by default
 template <typename T>
 Array<T>::Array(unsigned int n) : _array(new T[n]()), _size(n)
 {
 }
 
-// Copy constructor — deep copy (modifying copy must NOT affect original)
 template <typename T>
 Array<T>::Array(const Array &src) : _array(NULL), _size(0)
 {
-	// TODO: allocate new array and copy each element
+	this->_size = src._size;
+	this->_array = new T[src._size];
+	for (unsigned int i = 0; i < src._size; i++)
+		this->_array[i] = src._array[i];
 }
 
-// Assignment operator — deep copy
 template <typename T>
 Array<T> &Array<T>::operator=(const Array &rhs)
 {
-	// TODO: delete old array, allocate new one, copy each element
+	if (this != &rhs)
+	{
+		delete[] this->_array;
+		this->_size = rhs._size;
+		this->_array = new T[rhs._size];
+		for (unsigned int i = 0; i < rhs._size; i++)
+			this->_array[i] = rhs._array[i];
+	}
 	return *this;
 }
 
-// Destructor
 template <typename T>
 Array<T>::~Array()
 {
-	// TODO: free the array
+	delete[] this->_array;
 }
 
-// operator[] — access element, throw std::exception if out of bounds
 template <typename T>
 T &Array<T>::operator[](unsigned int index)
 {
-	// TODO
+	if (index >= this->_size)
+		throw std::exception();
+	return this->_array[index];
 }
 
-// const version of operator[]
 template <typename T>
 T const &Array<T>::operator[](unsigned int index) const
 {
-	// TODO
+	if (index >= this->_size)
+		throw std::exception();
+	return this->_array[index];
 }
 
-// size — returns the number of elements
 template <typename T>
 unsigned int Array<T>::size() const
 {
-	// TODO
+	return this->_size;
 }
 
 #endif
