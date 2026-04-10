@@ -21,12 +21,17 @@ void BitcoinExchange::loadDatabase(const std::string &filename)
 		throw std::runtime_error("Error: could not open database file.");
 
 	std::string line;
-	// TODO: Read the first line to skip the header ("date,exchange_rate")
-	// TODO: Read the file line by line
-	// TODO: Split the line using the comma ',' delimiter
-	// TODO: Convert the second part to a double using std::strtod or atof
-	// TODO: Store it in _db using _db[date] = value;
-	
+	std::getline(file, line);
+	while (std::getline(file, line))
+	{
+		size_t pos = line.find(',');
+		if (pos == std::string::npos)
+			continue;
+		std::string date = line.substr(0, pos);
+		std::string valueStr = line.substr(pos + 1);
+		double value = std::strtod(valueStr.c_str(), NULL);
+		_db[date] = value;
+	}
 	file.close();
 }
 
@@ -79,9 +84,33 @@ void BitcoinExchange::processInput(const std::string &filename)
 
 bool BitcoinExchange::isValidDate(const std::string &date) const
 {
-	// TODO: Check if date format is strictly YYYY-MM-DD
-	// - Validate year, month (1-12) and days (1-31)
-	return true; // replace this
+	if (date.length() != 10)
+		return false;
+	if (date[4] != '-' || date[7] != '-')
+		return false;
+	for (int i = 0; i < 10; i++)
+	{
+		if (i == 4 || i == 7)
+			continue;
+		if (!isdigit(date[i]))
+			return false;
+	}
+	std::string year = date.substr(0, 4);
+	std::string month = date.substr(5, 2);
+	std::string day = date.substr(8, 2);
+	if (year.length() != 4 || month.length() != 2 || day.length() != 2)
+		return false;
+	int y = std::atoi(year.c_str());
+	int m = std::atoi(month.c_str());
+	int d = std::atoi(day.c_str());
+	int daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+	if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))
+		daysInMonth[1] = 29;
+	if (y < 1 || m < 1 || m > 12 || d < 1)
+		return false;
+	if (d > daysInMonth[m - 1])
+		return false;
+	return true;
 }
 
 bool BitcoinExchange::isValidValue(const std::string &valueStr, double &value) const
@@ -89,10 +118,26 @@ bool BitcoinExchange::isValidValue(const std::string &valueStr, double &value) c
 	// TODO: Convert valueStr to double
 	// - If it's not a valid number or negative: std::cerr << "Error: not a positive number.\n"; return false;
 	// - If it's > 1000: std::cerr << "Error: too large a number.\n"; return false;
-	
+
 	// Example logic:
-	value = std::strtod(valueStr.c_str(), NULL);
-	return true; // replace this
+	char *endptr;
+	value = std::strtod(valueStr.c_str(), &endptr);
+	if (endptr == valueStr.c_str() || *endptr != '\0')
+	{
+		std::cerr << "Error: not a positive number." << std::endl;
+		return false;
+	}
+	if (value < 0)
+	{
+		std::cerr << "Error: not a positive number." << std::endl;
+		return false;
+	}
+	if (value > 1000)
+	{
+		std::cerr << "Error: too large a number." << std::endl;
+		return false;
+	}
+	return true;
 }
 
 double BitcoinExchange::getExchangeRate(const std::string &date) const
@@ -100,8 +145,13 @@ double BitcoinExchange::getExchangeRate(const std::string &date) const
 	// TODO: Use _db.lower_bound(date) to find the closest date.
 	// 1. If lower_bound returns exactly the date we want, return its value.
 	// 2. If it returns the beginning of the map (and not the exact date), the date is older than our database! Return 0 or closest.
-	// 3. Otherwise, because lower_bound returns the first element that is NOT LESS than the date, 
+	// 3. Otherwise, because lower_bound returns the first element that is NOT LESS than the date,
 	//    you must decrement the iterator (it--) to get the closest date IN THE PAST.
-
-	return 0.0; // replace this
+	std::map<std::string, double>::const_iterator it = _db.lower_bound(date);
+	if (it != _db.end()	 && it->first == date)
+		return it->second;
+	if (it == _db.begin())
+		return 0.0;
+	--it;
+	return it->second;
 }
