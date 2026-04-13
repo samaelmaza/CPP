@@ -1,8 +1,8 @@
-#include "RPN.hpp"
+#include "PmergeMe.hpp"
 
 int main(int argc, char **argv)
 {
-	if (argc != 2)
+	if (argc < 2)
 	{
 		std::cerr << "Error" << std::endl;
 		return 1;
@@ -10,8 +10,8 @@ int main(int argc, char **argv)
 
 	try
 	{
-		RPN rpn;
-		rpn.evaluate(argv[1]);
+		PmergeMe pm;
+		pm.run(argc, argv);
 	}
 	catch (std::exception &e)
 	{
